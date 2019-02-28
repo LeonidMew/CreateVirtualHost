@@ -60,7 +60,7 @@ then
 fi
 echo "$TEXT" > $TMPHOST$HOST
 
-A2ENSITE=$A2A2ENSITE$HOST".conf" # params for a2ensite
+A2ENSITE=$A2ENSITE$HOST".conf" # params for a2ensite
 
 echo "execute root tools with pkexec to create virtualhost"
 [ -d "$DIR" ] || mkdir -p "$DIR"
@@ -70,5 +70,7 @@ chmod u=rwX,g=rX,o= "$DIR"
 mv $TMPHOST$HOST $HOSTFILE
 chown root:root $HOSTFILE
 chmod u=rw,g=r,o=r $HOSTFILE
+#echo "$A2ENSITE"
 a2ensite $A2ENSITE
+systemctl reload apache2
 EOF
