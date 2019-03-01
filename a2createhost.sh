@@ -11,7 +11,6 @@ trap "rm $tmphost" EXIT				# rm temp file on exit
 
 notify_user () {
 	echo "$1" >&2
-	# xmessage will run only once to show first error message
 	[ -t 0 ] || if type -p notify-send >/dev/null; then notify-send "$1"; else xmessage -buttons Ok:0 -nearmouse "$1" -timeout 10; fi
 }
 

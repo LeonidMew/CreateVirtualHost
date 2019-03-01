@@ -1,11 +1,12 @@
 # CreateVirtualHost
-Simple bash script to create apache2 virtualhost for localhost. Can be used for public sub domains on developer server with changes "replace .localhost".
+Simple bash script to create apache2 virtualhost for localhost. Can be used for subdomains on developer server with changes "replace .localhost".
 
 Tested on Ubuntu, but should work where dependency met.
 
 Not for production, for development purposes only.
 
-Use `zenity` for gui and `pkexec` for root permissions in gui version.
+Use `zenity` for gui and `pkexec` for root permissions in gui version, also depends on `notify-send`.
+All available in main ubuntu repo.
 
 Uses prefered editor or `vim` or `nano` in text version or `zenity` in gui version to edit generated config.
 
