@@ -15,21 +15,21 @@ notify_user () {
 }
 
 if [ -t 0 ];then
-	usegui=
+	usegui=""
 else
 	if ! type -p zenity >/dev/null;then
-		notify_user "Use terminal or install zenity for gui. sudo apt install zenity"
+		notify_user "Use terminal or install zenity for gui. '$ sudo apt install zenity'"
 		exit 1
 	else
 		usegui="yes"
 	fi
 fi
 
-if [ "$(id -un)" == "root" ]
-then
-    notify_user "You should not run this script as root but as user going to edit web files."
-    exit 1
-fi
+# if [ "$(id -un)" == "root" ]
+# then
+#    notify_user "You should not run this script as root but as user going to edit web files."
+#    exit 1
+# fi
 
 get_virtual_host() {
     if [ -t 0 ]; then
@@ -38,9 +38,9 @@ get_virtual_host() {
         host=$(zenity --forms --add-entry=Name --text='Create virtualhost (= Folder name,case sensitive)')
     fi
     case "$host" in
-        "")            echo "Bad input: empty" >&2;      exit 1 ;;
-        *"*"*)         echo "Bad input: wildcard" >&2;   exit 1 ;;
-        *[[:space:]]*) echo "Bad input: whitespace" >&2; exit 1 ;;
+        "")            notify_user "Bad input: empty" ;      exit 1 ;;
+        *"*"*)         notify_user "Bad input: wildcard" ;   exit 1 ;;
+        *[[:space:]]*) notify_user "Bad input: whitespace" ; exit 1 ;;
     esac
     echo "$host"
 }
