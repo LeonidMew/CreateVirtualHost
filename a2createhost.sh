@@ -7,32 +7,39 @@ webroot="/home/${webmaster}/Web/"		# root folder where subfolders for virtualhos
 a2ensite="050-"								# short prefix for virtualhost config file
 apachehost="/etc/apache2/sites-available/${a2ensite}"	# prefix for virtualhost config file
 tmphost=$(mktemp)							# temp file for edit config
-trap "rm $tmphost" EXIT				# rm temp file on exit
+trap 'rm "$tmphost"' EXIT				# rm temp file on exit
+
+have_command() {
+	type -p "$1" >/dev/null
+}
+
+in_terminal() {
+	[ -t 0 ]
+}
 
 notify_user () {
 	echo "$1" >&2
-	[ -t 0 ] || if type -p notify-send >/dev/null; then notify-send "$1"; else xmessage -buttons Ok:0 -nearmouse "$1" -timeout 10; fi
+	in_terminal && return
+	local windowicon="info" # 'error', 'info', 'question' or 'warning' or path to icon
+	[ "$2" ] && windowicon="$2"
+	if have_command zenity; then
+		zenity --notification --text="$1" --window-icon="$windowicon"
+		return
+	fi
+	if have_command notify-send; then
+		notify-send "$1"
+	else
+		xmessage -buttons Ok:0 -nearmouse "$1" -timeout 10
+	fi
 }
 
-if [ -t 0 ];then
-	usegui=""
-else
-	if ! type -p zenity >/dev/null;then
-		notify_user "Use terminal or install zenity for gui. '$ sudo apt install zenity'"
-		exit 1
-	else
-		usegui="yes"
-	fi
+if ! in_terminal && ! have_command zenity;then
+	notify_user "Use terminal or install zenity for gui. '$ sudo apt install zenity'"
+	exit 1
 fi
 
-# if [ "$(id -un)" == "root" ]
-# then
-#    notify_user "You should not run this script as root but as user going to edit web files."
-#    exit 1
-# fi
-
 get_virtual_host() {
-    if [ -t 0 ]; then
+    if in_terminal; then
         read -p "Create virtualhost (= Folder name,case sensitive)" -r host
     else
         host=$(zenity --forms --add-entry=Name --text='Create virtualhost (= Folder name,case sensitive)')
@@ -45,7 +52,7 @@ get_virtual_host() {
     echo "$host"
 }
 
-host=$(get_virtual_host)
+host=$(get_virtual_host) || exit
 
 hostfile="${apachehost}${host}.conf"    # apache virtualhost config file
 dir="${webroot}${host}"                 # folder used as document root for virtualhost
@@ -68,39 +75,49 @@ cat >"$tmphost" <<EOF
 # vim: syntax=apache ts=4 sw=4 sts=4 sr noet
 EOF
 
-if [ ! -z "$usegui" ];then
+find_editor() {
+	local editor=${VISUAL:-$EDITOR}
+	if [ "$editor" ]; then
+		echo "$editor"
+		return
+	fi
+
+	for cmd in nano vim vi pico; do
+		if have_command "$cmd"; then
+			echo "$cmd"
+			return
+		fi
+	done
+}
+
+if in_terminal; then
 	# edit virtualhost config
-	text=$(zenity --text-info --title="virtualhost config" --filename="$tmphost" --editable)
-	if [ -z "$text" ]
-	then
-		# cancel button pressed
-		exit 0
-	fi
-	echo "$text" > "$tmphost"
-else
-	# edit virtualhost config
-	editor=${VISUAL:-$EDITOR}
+	editor=$(find_editor)
 	if [ -z "$editor" ];then
-		if type -p nano >/dev/null;then editor="nano"; fi
-	fi
-	if [ -z "$editor" ];then
-		if type -p vim >/dev/null;then editor="vim"; fi
-	fi
-	if [ -z "$editor" ];then
+	    echo "$tmphost:"
+	    cat  $tmphost
 	    echo "edit '$tmphost' to your liking, then hit Enter"
 	    read -p "I'll wait ... "
 	else
 	    "$editor" "$tmphost"
 	fi
+else
+	# edit virtualhost config
+	text=$(zenity --text-info --title="virtualhost config" --filename="$tmphost" --editable)
+	if [ -z "$text" ];then
+		# cancel button pressed
+		exit 0
+	fi
+	echo "$text" > "$tmphost"
 fi
 # probably want some validating here that the user has not broken the config
 # apache will not reload config if incorrect
 
 getsuperuser () {
-	if [ ! -z "$usegui" ];then
-		echo "pkexec"
-	else
+	if in_terminal;then
 		echo "sudo"
+	else
+		echo "pkexec"
 	fi
 }
 
@@ -117,4 +134,4 @@ a2ensite "${a2ensite}${host}.conf"
 systemctl reload apache2
 EOF
 
-notify_user "Virtualhost added. Apache2 reloaded."
+[ "$!" ] && notify_user "Virtualhost added. Apache2 reloaded."
