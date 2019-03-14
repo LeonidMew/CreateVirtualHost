@@ -11,32 +11,7 @@ die() {
 
 source virtualhost.inc.sh
 
-(getopt --test > /dev/null) || true
-[[ "$?" -gt 4 ]] && die 'I’m sorry, `getopt --test` failed in this environment.'
-OPTIONS=""
-LONGOPTS="webmaster:,webgroup:,webroot:,domain:,subdomain:,virtualhost:,virtualport:,serveradmin:,readconf:,writeconf:"
-! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
-if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-  # e.g. return value is 1
-  # then getopt has complained about wrong arguments to stdout
-  exit 2
-fi
-# read getopt’s output this way to handle the quoting right:
-eval set -- "$PARSED"
-while true; do
-  case "$1" in
-    --)
-      shift
-      break
-      ;;
-    *)
-      index=${1//--/}
-      config[$index]=$2
-      shift 2
-      ;;
-  esac
-done
-
+parseargs "$@"
 validate
 parse
 connect
