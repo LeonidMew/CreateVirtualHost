@@ -14,7 +14,7 @@ source virtualhost.inc.sh
 parseargs "$@"
 validate
 parse
-connect
+#connect
 
 siteconf="${config[readconf]:-${config[writeconf]}}"
 [[ -z "$siteconf" ]] && \
