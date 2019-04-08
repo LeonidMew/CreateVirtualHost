@@ -1,5 +1,13 @@
+#check if function exists
+if ! type die &>/dev/null;then
+  die() {
+    echo "${2:-Error}: $1" >&2
+    exit ${3:-1}
+  }
+fi
 [[ "${BASH_VERSINFO:-0}" -ge 4 ]] || die "Bash version 4 or above required"
 
+# defaults
 declare -A config=()
 config[webmaster]="$(id -un)"   # user who access web files. group is www-data
 config[webgroup]="www-data"     # apache2 web group, does't need to be webmaster group. SGID set for folder.
@@ -10,6 +18,8 @@ config[virtualport]="80"        # port of virtualhost. apache2 must listen on th
 config[serveradmin]="webmaster@localhost" # admin email
 config[a2ensite]="050-"         # short prefix for virtualhost config file
 config[apachesites]="/etc/apache2/sites-available/" # virtualhosts config folder
+
+declare -A mysql=() # mysql script read values from env
 
 have_command() {
   type -p "$1" >/dev/null
@@ -26,8 +36,8 @@ if_match() {
 validate() {
   [[ -z $1 && -z "${config[subdomain]}" ]] && die "--subdomain required"
   [[ "${config[webmaster]}" == "root" ]] && die "--webmaster should not be root"
-  id "${config[webmaster]}" >/dev/null 2>&1 || die "--webmaster user '${config[webmaster]}' not found"
-  getent group "${config[webgroup]}" > /dev/null 2>&1
+  id "${config[webmaster]}" >& /dev/null || die "--webmaster user '${config[webmaster]}' not found"
+  getent group "${config[webgroup]}" >& /dev/null
   [[ $? -ne 0 ]] && die "Group ${config[webgroup]} not exists"
   have_command apache2 || die "apache2 not found"
   [[ -d ${config[apachesites]} ]] || die "apache2 config folder not found"
@@ -81,7 +91,7 @@ parseargs() {
   (getopt --test > /dev/null) || true
   [[ "$?" -gt 4 ]] && die 'I’m sorry, `getopt --test` failed in this environment.'
   OPTIONS=""
-  LONGOPTS="webmaster:,webgroup:,webroot:,domain:,subdomain:,virtualhost:,virtualport:,serveradmin:,readconf:,writeconf:"
+  LONGOPTS="help,webmaster:,webgroup:,webroot:,domain:,subdomain:,virtualhost:,virtualport:,serveradmin:"
   ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
   if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     # e.g. return value is 1
@@ -92,16 +102,32 @@ parseargs() {
   eval set -- "$PARSED"
   while true; do
     case "$1" in
+      --help)
+        man -P cat ./virtualhost.1
+        exit 0
+        ;;
       --)
         shift
         break
         ;;
       *)
-        index=${1//--/}
+        index=${1#--} # limited to LONGOPTS
         config[$index]=$2
         shift 2
         ;;
     esac
   done
 
+}
+
+validate_mysql() {
+  for key in adminuser database user;do
+    (LANG=C; if_match "${mysql[$key]}" "^[a-zA-Z][a-zA-Z0-9_-]*$") || die "bad mysql $key"
+  done
+}
+escape_mysql() {
+  for key in adminpasswd passwd;do
+    printf -v var "%q" "${mysql[$key]}"
+    mysql[$key]=$var
+  done
 }

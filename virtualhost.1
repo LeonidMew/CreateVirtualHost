@@ -1,0 +1,44 @@
+.TH "virtualhost-cli.sh" 1
+.SH NAME
+virtualhost-cli.sh - create apache2 virtualhost
+.SH SYNOPSIS
+.B virtualhost-cli.sh
+.RI "--subdomain=" domain ""
+.RI "[--domain=" localhost "]"
+.RI "[--webmaster=" username "]"
+.RI "[--webgroup=" usergroup "]"
+.RI "[--webroot='" ${homedir}/Web/${subdomain} "']"
+.RI "[--serveradmin=" webmaster@localhost "]"
+.RI "[--virtualhost=" localhost "]"
+.RI "[--virtualport=" 80 "]"
+.br
+.B virtualhost-yad.sh
+.RI "[" "same options as defaults" "]..."
+.br
+.B virtualhost-install.sh
+.RI "[" "same options as defaults" "]..."
+.SH DESCRIPTION
+.TP
+.B virtualhost-cli.sh
+Create configuration and folder for virtual host, then reload apache. Do not create
+DNS record for domain, so works best with something like *.localhost in /etc/hosts
+.TP
+.B virtualhost-yad.sh
+GUI tool on top of cli. Get optional arguments as defaults what can be changed by user.
+Requires package yad.
+.TP
+.B virtualhost-install.sh
+Install .desktop shortcut for current user(or --webmaster user is specified),
+not system wide. Shortcut to virtualhost-yad.sh with default parameters,
+and can be called by it one to make new shortcut with new defaults
+.SH OPTIONS
+.TP
+.B --subdomain
+Subdomain for virtual host, also can be used in webroot folder name so case
+sensetive. Only for virtualhost-cli.sh, GUI version expect it from user input.
+.TP
+.B --webroot
+Folder of virtual host root. Can contain variables ${homedir}(of webmaster)
+${subdomain} ${webmaster} ${domain}. Variables validated against restrective
+regexp, for security reason.
+Default is '${homedir}/Web/${subdomain}'.

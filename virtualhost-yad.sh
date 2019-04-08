@@ -26,7 +26,7 @@ die() {
   exit ${3:-1}
 }
 
-have_command yad || die "yad required. 'sudo apt install yad'"
+have_command yad || die "yad package required. 'sudo apt install yad'"
 
 user_info() {
   yad --title="Virtualhost" --window-icon="${2:-error}" --info --text="$1" --timeout="${3:-15}" --button="Ok:0" --center
@@ -42,49 +42,68 @@ while true; do
     --field="Virtualhost ip or domain" \
     --field="Virtualhost port" --field="Server admin email" \
     --field="Create mysql user&db:CHK" \
-    --button="Cancel:3" --button="Save defaults:2" --button="Create:0" \
+    --field="Mysql admin user" --field="Mysql admin password" \
+    --field="Create database" \
+    --field="Create mysql user" --field="Create mysql password" \
+    --button="Cancel:5" --button="Save defaults:2" --button="Create:0" \
     --title="Create apache virtualhost" \
-    --text='Subdomain are case sencetive for Webroot folder ${subdomain} variable' \
+    --text='Subdomain are case sensetive for Webroot folder ${subdomain} variable' \
     --focus-field=1 --center --window-icon="preferences-system" --width=600 \
     "${config[subdomain]}" "${config[domain]}" "${config[webmaster]}" "${config[webgroup]}" \
-    "${config[webroot]}" "test" "${config[virtualhost]}" "${config[virtualport]}" "${config[serveradmin]}" 1) || formbutton="$?" && true
-  [[ "$formbutton" -ne 0 && "$formbutton" -ne 2 ]] && die "Cancell"
+    "${config[webroot]}" "test" "${config[virtualhost]}" "${config[virtualport]}" \
+    "${config[serveradmin]}" true \
+    "${mysql[adminuser]}" "${mysql[adminpasswd]}" \
+    "${mysql[database]}" "${mysql[user]}" "${mysql[passwd]}" \
+    ) || formbutton="$?" && true
+  # Cancel(5) or close window(other code)
+  [[ "$formbutton" -ne 0 && "$formbutton" -ne 2 && "$formbutton" -ne 1 ]] && die "Cancel"
 
   IFS='|' read -r -a form <<< "$formoutput"
-  config[subdomain]="${form[0]}"
-  config[domain]="${form[1]}"
-  config[webmaster]="${form[2]}"
-  config[webgroup]="${form[3]}"
-  config[webroot]="${form[4]}"
-  config[virtualhost]="${form[6]}"
-  config[virtualport]="${form[7]}"
-  config[serveradmin]="${form[8]}"
+
+  pos=0
+  for key in subdomain domain webmaster webgroup webroot nothing virtualhost virtualport serveradmin;do
+    config[$key]="${form[$pos]}"
+    let pos=pos+1
+  done
+
+  usemysql=
+  [[ "${form[9]}" -eq "TRUE" ]] && usemysql=1
+
+  pos=10
+  for key in adminuser adminpasswd database user passwd;do
+    mysql[$key]="${form[$pos]}"
+    let pos=pos+1
+  done
 
   vres=0
+  # subdomain can't be default option, skip it
   [[ "$formbutton" -eq 2 ]] && skipsubdomain=1 || skipsubdomain=
+  # validate input, continue or show error and return to form
   valoutput=$(validate $skipsubdomain 2>&1) || vres=$? && true
   [[ "$vres" -ne 0 ]] && user_info "$valoutput" && continue
 
-  args=""
-
-  [[ "$formbutton" -ne 2 && "${config[subdomain]}" ]] && args+=" --subdomain ${config[subdomain]}"
-  [[ "${config[domain]}" ]] && args+=" --domain '${config[domain]}'"
-  [[ "${config[webmaster]}" ]] && args+=" --webmaster ${config[webmaster]}"
-  [[ "${config[webgroup]}" ]] && args+=" --webgroup ${config[webgroup]}"
-  [[ "${config[webroot]}" ]] && args+=" --webroot ${config[webroot]}"
-  [[ "${config[virtualhost]}" ]] && args+=" --virtualhost ${config[virtualhost]}"
-  [[ "${config[virtualport]}" ]] && args+=" --virtualport ${config[virtualport]}"
-  [[ "${config[serveradmin]}" ]] && args+=" --serveradmin ${config[serveradmin]}"
   clires=0
   if [[ "$formbutton" -ne 2 ]]; then
-    set -x
-    clioutput=$(./virtualhost-cli.sh --subdomain "${config[subdomain]}" \
+    cmd="pkexec `pwd`/virtualhost-cli.sh"
+    [[ "$formbutton" -eq 2 ]] && cmd="./virtualhost-install.sh"
+    clioutput=$($cmd --subdomain "${config[subdomain]}" \
     --domain "${config[domain]}" --webmaster "${config[webmaster]}" \
     --webgroup "${config[webgroup]}" --webroot "${config[webroot]}" \
     --virtualhost "${config[virtualhost]}" --virtualport "${config[virtualport]}" \
     --serveradmin "${config[serveradmin]}" 2>&1) || clires=$? && true
-    set +x
-    echo "[$clires]"
-    [[ "$clires" -ne 0 ]] && user_info "$clioutput" && continue
+    [[ "$clioutput" ]] && user_info "$clioutput" || true
+    [[ "$clires" -ne 0 ]] && continue
+    # mysql
+    if [[ "$usemysql" ]]; then
+      mysqlres=0
+      mysqloutput=$(adminuser="${mysql[adminuser]}" adminpwd="${mysql[adminpasswd]}" \
+      database="${mysql[database]}" mysqluser="${mysql[user]}" \
+      mysqlpasswd="${mysql[passwd]}" ./virtualhost-mysql.sh \
+      --subdomain "${config[subdomain]}" 2>&1) || mysqlres=$? && true
+      [[ "$mysqloutput" ]] && user_info "$mysqloutput" || true
+      [[ "$mysqlres" -ne 0 ]] && continue
+      break
+    fi
+    break
   fi
 done
