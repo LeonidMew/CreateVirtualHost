@@ -10,7 +10,7 @@ All available in main ubuntu repo.
 
 Launch from terminal or install dependences and launch gui version(by .desktop file for example). GUI version can create .desktop shortcut with some values defined as defaults in shortcut
 
-![Screenshot](YAD_Screenshot.png?raw=true)
+![Screenshot](https://raw.githubusercontent.com/LeonidMew/CreateVirtualHost/master/YAD-Screenshot.png)
 
 **Install and usage**
 
