@@ -17,14 +17,19 @@ Note the wildcard, script doesn't create domains
 
 **Man page:**
 
+    SYNOPSIS
 
-       virtualhost-cli.sh    --subdomain=domain   [--domain=localhost]   [--webmaster=username]   [--webgroup=usergroup]   [--webroot='${homedir}/Web/${subdomain}']     [--serveradmin=webmaster@localhost]    [--virtualhost=localhost]  [--virtualport=80]
+       virtualhost-cli.sh    --subdomain=domain   [--domain=localhost]
+              [--webmaster=username]   [--webgroup=usergroup]
+              [--webroot='${homedir}/Web/${subdomain}']
+              [--serveradmin=webmaster@localhost]
+              [--virtualhost=localhost]  [--virtualport=80]
 
        virtualhost-yad.sh [same options as defaults]...
 
        virtualhost-install.sh [same options as defaults]...
 
-      virtualhost-cli.sh
+       virtualhost-cli.sh
               Create configuration and folder for virtual host, then reload apache.
               Do  not  create  DNS  record for domain, so works best with something
               like *.localhost in /etc/hosts
@@ -39,7 +44,7 @@ Note the wildcard, script doesn't create domains
               default  parameters, and can be called by it one to make new shortcut
               with new defaults
 
-OPTIONS
+    OPTIONS
 
        --subdomain
               Subdomain for virtual host, also can be used in webroot  folder  name
