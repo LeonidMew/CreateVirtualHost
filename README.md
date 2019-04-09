@@ -10,6 +10,8 @@ All available in main ubuntu repo.
 
 Launch from terminal or install dependences and launch gui version(by .desktop file for example). GUI version can create .desktop shortcut with some values defined as defaults in shortcut
 
+![Screenshot](YAD_Screenshot.png?raw=true)
+
 **Install and usage**
 
 Download and unpack in desired installation directory. For command line usage make symlink to virtualhost-cli.sh in any bin folder in PATH. For gui usage install dependency by `sudo apt-get install yad notify-send` and run `virtualhost-yad.sh`, change values to desired defaults and click "save defaults" - this will create application shortcut as desktop file in local user application folder.
