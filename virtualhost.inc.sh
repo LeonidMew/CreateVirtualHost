@@ -20,6 +20,7 @@ config[a2ensite]="050-"         # short prefix for virtualhost config file
 config[apachesites]="/etc/apache2/sites-available/" # virtualhosts config folder
 
 declare -A mysql=() # mysql script read values from env
+declare -r mysqlconf="$( getent passwd "${config[webmaster]}" | cut -d: -f6 )/.config/virtualhost_mysql.cnf"
 
 have_command() {
   type -p "$1" >/dev/null
@@ -33,7 +34,7 @@ if_match() {
   [[ "$1" =~ $2 ]]
 }
 
-validate() {
+validate_args() {
   [[ -z $1 && -z "${config[subdomain]}" ]] && die "--subdomain required"
   [[ "${config[webmaster]}" == "root" ]] && die "--webmaster should not be root"
   id "${config[webmaster]}" >& /dev/null || die "--webmaster user '${config[webmaster]}' not found"
@@ -42,27 +43,27 @@ validate() {
   have_command apache2 || die "apache2 not found"
   [[ -d ${config[apachesites]} ]] || die "apache2 config folder not found"
 
-  (LANG=C; if_match "${config[domain]}" "^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9\.])*$") || \
+  LANG=C; if_match "${config[domain]}" "^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9\.])*$" || \
     die "Bad domain"
-  [[ -z "$1" ]] && ((LANG=C; if_match "${config[subdomain]}" "^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$") || \
+  [[ -z "$1" ]] && (LANG=C; if_match "${config[subdomain]}" "^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$" || \
     die "Bad subdomain")
-  (LANG=C; if_match "${config[serveradmin]}" \
+  LANG=C; if_match "${config[serveradmin]}" \
     "^[a-z0-9!#\$%&'*+/=?^_\`{|}~-]+(\.[a-z0-9!#$%&'*+/=?^_\`{|}~-]+)*@([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]*[a-z0-9])?\$" \
-    ) || die "Bad admin email"
+    || die "Bad admin email"
 
   octet="(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
-  (if_match "${config[virtualhost]}" "^$octet\\.$octet\\.$octet\\.$octet$") || \
-    (if_match "${config[virtualhost]}" "^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9\.])*$") || \
-    (if_match "${config[virtualhost]}" "^\*$") || \
+  if_match "${config[virtualhost]}" "^$octet\\.$octet\\.$octet\\.$octet$" || \
+    if_match "${config[virtualhost]}" "^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9\.])*$" || \
+    if_match "${config[virtualhost]}" "^\*$" || \
     die "Bad virtualhost"
-  (if_match "${config[virtualport]}" "^[1-9][0-9]+$") || die "Bad virtualport"
+  if_match "${config[virtualport]}" "^[1-9][0-9]+$" || die "Bad virtualport"
 }
 
 tolowercase() {
-  echo "${1}" | tr '[:upper:]' '[:lower:]'
+  tr '[:upper:]' '[:lower:]' <<< "${1}"
 }
 
-parse() {
+process_args() {
   config[webroot]=$(echo "${config[webroot]}" | \
   homedir=$( getent passwd "${config[webmaster]}" | cut -d: -f6 ) \
   webmaster="${config[webmaster]}" \
@@ -77,11 +78,11 @@ parse() {
 }
 
 # check if apache listening on defined host:port
-connect() {
+check_virtualhost_port() {
   (systemctl status apache2) &>/dev/null || return
   local host="${config[virtualhost]}"
   [[ "$host" == "*" ]] && host="localhost"
-  ret=0
+  local ret=0
   msg=$(netcat -vz "$host" "${config[virtualport]}" 2>&1) || ret=$? && true
   [[ $ret -ne 0 ]] && die "$msg"
 }
@@ -90,8 +91,9 @@ connect() {
 parseargs() {
   (getopt --test > /dev/null) || true
   [[ "$?" -gt 4 ]] && die 'I’m sorry, `getopt --test` failed in this environment.'
-  OPTIONS=""
-  LONGOPTS="help,webmaster:,webgroup:,webroot:,domain:,subdomain:,virtualhost:,virtualport:,serveradmin:"
+  local OPTIONS=""
+  local LONGOPTS="$parseargs_opts"
+  # "help,webmaster:,webgroup:,webroot:,domain:,subdomain:,virtualhost:,virtualport:,serveradmin:"
   ! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
   if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
     # e.g. return value is 1
@@ -105,6 +107,10 @@ parseargs() {
       --help)
         man -P cat ./virtualhost.1
         exit 0
+        ;;
+      --saveloginpassword)
+        mysql[savemysql]=1
+        shift
         ;;
       --)
         shift
@@ -120,14 +126,13 @@ parseargs() {
 
 }
 
-validate_mysql() {
-  for key in adminuser database user;do
-    (LANG=C; if_match "${mysql[$key]}" "^[a-zA-Z][a-zA-Z0-9_-]*$") || die "bad mysql $key"
-  done
+mysql_saveloginconfig() {
+cat >"$mysqlconf" <<EOF
+[client]
+user = $1
+password = $2
+host = localhost
+EOF
+chmod u=rw,g=,o= "$mysqlconf"
 }
-escape_mysql() {
-  for key in adminpasswd passwd;do
-    printf -v var "%q" "${mysql[$key]}"
-    mysql[$key]=$var
-  done
-}
+

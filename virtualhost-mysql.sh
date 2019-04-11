@@ -6,6 +6,7 @@ cd "${0%/*}"
 
 source virtualhost.inc.sh
 
+parseargs_opts="help,subdomain:,saveloginpassword"
 parseargs "$@" # only --subdomain used
 # read values from env
 subdomain=$(tolowercase "${config[subdomain]}")
@@ -15,8 +16,18 @@ mysql[database]="${mysqldatabase:-${subdomain}}"
 mysql[user]="${mysqluser:-${subdomain:-$(id -un)}}"
 mysql[passwd]="${mysqlpasswd}"
 
-validate_mysql
-escape_mysql
+for key in adminuser database user;do
+  LANG=C; if_match "${mysql[$key]}" "^[a-zA-Z][a-zA-Z0-9_-]*$" || die "bad mysql $key"
+done
+
+[[ "${mysql[adminuser]}" && "${mysql[adminpasswd]}" ]] \
+  && mysql_saveloginconfig "${mysql[adminuser]}" "${mysql[adminpasswd]}" && \
+  [[ ! "${mysql[savemysql]}" ]] && trap 'rm "$mysqlconf"' EXIT
+
+for key in adminpasswd passwd;do
+  printf -v var "%q" "${mysql[$key]}"
+  mysql[$key]=$var
+done
 
 mysqlcreate=$(cat <<EOF
 CREATE USER '${mysql[user]}'@'localhost' IDENTIFIED BY '${mysql[passwd]}';
@@ -27,4 +38,4 @@ FLUSH PRIVILEGES;
 EOF
 )
 
-mysql --user="${mysql[adminuser]}" --password="${mysql[adminpasswd]}" <<<$mysqlcreate
+mysql --defaults-extra-file="$mysqlconf" <<<"$mysqlcreate"

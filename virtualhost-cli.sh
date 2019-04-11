@@ -6,15 +6,19 @@ cd "${0%/*}"
 
 source virtualhost.inc.sh
 
+parseargs_opts="help,webmaster:,webgroup:,webroot:,domain:,subdomain:,virtualhost:,virtualport:,serveradmin:"
 parseargs "$@"
-validate
-parse
-#connect
+validate_args
+process_args
 
-hostfile="${config[a2ensite]}${config[subdomain]}.conf"
-siteconf="${config[apachesites]}${hostfile}"
+if [[ ! "$(id -un)" == "root" ]];then
+   die "Run as root." "error" 1
+fi
 
-(cat >"$siteconf" <<EOF
+declare -r hostfile="${config[a2ensite]}${config[subdomain]}.conf"
+declare -r siteconf="${config[apachesites]}${hostfile}"
+
+cat >"$siteconf" <<EOF || die "Unable to write $siteconf"
 <VirtualHost ${config[virtualhost]}:${config[virtualport]}>
   ServerAdmin ${config[serveradmin]}
     DocumentRoot ${config[webroot]}
@@ -30,16 +34,14 @@ siteconf="${config[apachesites]}${hostfile}"
 </VirtualHost>
 # vim: syntax=apache ts=4 sw=4 sts=4 sr noet
 EOF
-) || die "May run as root or give $siteconf writable permissions to current user"
 
-(
-  mkdir -p "${config[webroot]}"
-  chown ${config[webmaster]}:${config[webgroup]} "${config[webroot]}"
-  chmod u=rwX,g=rXs,o= "${config[webroot]}"
-  chown root:root "$siteconf"
-  chmod u=rw,g=r,o=r "$siteconf"
-  a2ensite "${hostfile}"
-  systemctl reload apache2
-) || die "Run as root"
+
+mkdir -p "${config[webroot]}"
+chown ${config[webmaster]}:${config[webgroup]} "${config[webroot]}"
+chmod u=rwX,g=rXs,o= "${config[webroot]}"
+chown root:root "$siteconf"
+chmod u=rw,g=r,o=r "$siteconf"
+a2ensite "${hostfile}"
+systemctl reload apache2
 
 die "Config file saved and enabled at ${siteconf}" "Notice" 0

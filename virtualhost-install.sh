@@ -17,8 +17,9 @@ cd "${sourcedir}"
 
 source virtualhost.inc.sh
 
+parseargs_opts="help,webmaster:,webgroup:,webroot:,domain:,virtualhost:,virtualport:,serveradmin:"
 parseargs "$@"
-validate "skipsubdomain"
+validate_args "skipsubdomain"
 
 args=""
 config[domain]=${config[domain]#.}
@@ -26,9 +27,9 @@ for key in domain webmaster webgroup webroot virtualhost virtualport serveradmin
   [[ "${config[$key]}" ]] && args+=" --${key} '${config[$key]}'"
 done
 
-homedir=$( getent passwd "${config[webmaster]}" | cut -d: -f6 )
-installpath="${sourcedir}/virtualhost-yad.sh"
-desktop="$homedir/.local/share/applications/virtualhost.desktop"
+declare -r homedir=$( getent passwd "${config[webmaster]}" | cut -d: -f6 )
+declare -r installpath="${sourcedir}/virtualhost-yad.sh"
+declare -r desktop="$homedir/.local/share/applications/virtualhost.desktop"
 
 cat >"$desktop" <<EOF
 [Desktop Entry]
